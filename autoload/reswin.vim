@@ -92,7 +92,9 @@ function! s:focus_buffer(bufferNr, options)
   set switchbuf=useopen
 
   " Split & open.
-  if a:options.position == 'right'
+  if !has_key(a:options, 'position')
+    let l:position = ''
+  elseif a:options.position == 'right'
     let l:position = 'vertical belowright'
   elseif a:options.position == 'left'
     let l:position = 'vertical topleft'
@@ -126,8 +128,6 @@ function! s:execute_in_window(pipeFunction, ...)
   else
     let l:options = {}
   endif
-  if !has_key(l:options, 'position')
-  endif
   if has_key(l:options, 'title')
     let l:title = ' ' . l:options.title
   else
@@ -146,6 +146,10 @@ function! s:execute_in_window(pipeFunction, ...)
 
   if has_key(l:options, 'height')
     execute 'resize ' . l:options.height
+  endif
+
+  if has_key(l:options, 'onOpen')
+    call l:options.onOpen(l:buffer)
   endif
 
   " Clear the buffer.
