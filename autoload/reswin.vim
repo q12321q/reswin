@@ -177,7 +177,7 @@ function! s:execute_in_window(pipeFunction, ...)
      call setpos('.', l:cursor_position)
   endif
 
-  if !has_key(l:options, 'keepFocus') && l:options.keepFocus
+  if !has_key(l:options, 'keepFocus') || l:options.keepFocus
     call s:focus_buffer(l:parent, l:options)
   endif
 endfunction
