@@ -12,11 +12,11 @@ function g:reswin#Print(str, ...)
     let l:options = {}
   endif
 
-  let closure = copy(a:)
-  function closure.run()
+  let callback = copy(a:)
+  function callback.call()
     call s:printer(self.str)
   endfunction
-  call s:execute_in_window(closure, l:options)
+  call s:execute_in_window(callback, l:options)
 endfunction
 
 """ Print the result of a shell command into the reswin
@@ -26,13 +26,13 @@ function! g:reswin#Shell(command, ...) range
   else
     let l:options = {}
   endif
-  let closure = copy(a:)
-  let closure.selection = getline(a:firstline, a:lastline)
-  function closure.run()
+  let callback = copy(a:)
+  let callback.selection = getline(a:firstline, a:lastline)
+  function callback.call()
     call setline(1, self.selection)
     silent execute ":%!" . self.command
   endfunction
-  call s:execute_in_window(closure, l:options)
+  call s:execute_in_window(callback, l:options)
 endfunction
 
 """ Print the result of the evalution of a expresion into the reswin
@@ -42,11 +42,11 @@ function g:reswin#Eval(expression, ...)
   else
     let l:options = {}
   endif
-  let closure = copy(a:)
-  function closure.run()
+  let callback = copy(a:)
+  function callback.call()
     call s:printer(eval(self.expression))
   endfunction
-  call s:execute_in_window(closure, l:options)
+  call s:execute_in_window(callback, l:options)
 endfunction
 
 """ Print the result of the execution of a command into the reswin
@@ -56,14 +56,14 @@ function g:reswin#Command(command, ...)
   else
     let l:options = {}
   endif
-  let closure = copy(a:)
-  function closure.run()
+  let callback = copy(a:)
+  function callback.call()
     redir @z
     execute 'silent '.self.command
     redir END
     call s:printer(@z)
   endfunction
-  call s:execute_in_window(closure, l:options)
+  call s:execute_in_window(callback, l:options)
 endfunction
 
 """""""""""""""""""""""""""""""""
@@ -81,6 +81,10 @@ function! s:create_buffer(parent, name, options)
   call setbufvar(l:buffer, "&buftype", "nofile")
   " call setbufvar(l:buffer, "&bufhidden", "wipe")
   call setbufvar(l:buffer, "vimpipe_parent", a:parent)
+
+  if has_key(a:options, 'onCreate')
+    call a:options.onCreate(l:buffer)
+  endif
 
   return l:buffer
 endfunction
@@ -136,6 +140,10 @@ function! s:execute_in_window(pipeFunction, ...)
   let l:parent = bufnr("%")
   let l:buffer = s:create_or_focus_buffer(l:parent, "[ResWin]".l:title, l:options)
 
+  if has_key(l:options, 'preservePosition') && l:options.preservePosition
+    let l:cursor_position = getpos('.')
+  endif
+
   if has_key(l:options, 'filetype')
     call setbufvar(l:buffer, "&filetype", l:options.filetype)
   endif
@@ -154,15 +162,24 @@ function! s:execute_in_window(pipeFunction, ...)
 
   " Clear the buffer.
   redraw
-  execute ":%d _"
 
-  call a:pipeFunction.run()
+  if !has_key(l:options, 'clear') || l:options.clear
+    execute ":%d _"
+  endif
+
+  call a:pipeFunction.call()
 
   if has_key(l:options, 'onComplete')
     call l:options.onComplete(l:buffer)
   endif
 
-  call s:focus_buffer(l:parent, l:options)
+  if has_key(l:options, 'preservePosition') && l:options.preservePosition
+     call setpos('.', l:cursor_position)
+  endif
+
+  if !has_key(l:options, 'keepFocus') && l:options.keepFocus
+    call s:focus_buffer(l:parent, l:options)
+  endif
 endfunction
 
 """ Print a string in the current buffer
